@@ -1,0 +1,143 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── DARK MODE (default) ─────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg: #0A0C10;
+  --surface: #111318;
+  --surface-alt: #16191F;
+  --border: #1E2229;
+  --accent: #2ECC9A;
+  --accent-dim: #1A7A5C;
+  --accent-soft: rgba(46,204,154,0.12);
+  --accent-glow: rgba(46,204,154,0.25);
+  --red: #FF5C6A;
+  --red-soft: rgba(255,92,106,0.12);
+  --yellow: #FFB547;
+  --yellow-soft: rgba(255,181,71,0.12);
+  --blue: #5B8DEF;
+  --blue-soft: rgba(91,141,239,0.12);
+  --text: #E8EAF0;
+  --text-muted: #6B7280;
+  --text-dim: #9CA3AF;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-md: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* ── LIGHT MODE ──────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #F0F4F8;
+  --surface: #FFFFFF;
+  --surface-alt: #F8FAFC;
+  --border: #E2E8F0;
+  --accent: #10A37F;
+  --accent-dim: #0D7A60;
+  --accent-soft: rgba(16,163,127,0.10);
+  --accent-glow: rgba(16,163,127,0.20);
+  --red: #E53E3E;
+  --red-soft: rgba(229,62,62,0.10);
+  --yellow: #D97706;
+  --yellow-soft: rgba(217,119,6,0.10);
+  --blue: #3B7FE8;
+  --blue-soft: rgba(59,127,232,0.10);
+  --text: #1A202C;
+  --text-muted: #718096;
+  --text-dim: #4A5568;
+  --radius: 12px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.12);
+}
+
+/* ── BASE ────────────────────────────────────────────── */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ── SCROLLBAR ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── FORM ELEMENTS ───────────────────────────────────── */
+input, select, textarea {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 14px;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.3s;
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Light mode inputs need subtle background */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background: #F8FAFC;
+  border-color: #CBD5E0;
+}
+
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus {
+  background: #FFFFFF;
+  border-color: var(--accent);
+}
+
+/* ── BUTTONS ─────────────────────────────────────────── */
+button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
+
+/* ── TABLE HOVER ─────────────────────────────────────── */
+[data-theme="light"] tr:hover td {
+  background: #F0F7F4 !important;
+}
+
+/* ── CARD SHADOWS in light mode ──────────────────────── */
+[data-theme="light"] .card,
+[data-theme="light"] [style*="border: 1px solid var(--border)"] {
+  box-shadow: var(--shadow);
+}
+
+/* ── ANIMATIONS ──────────────────────────────────────── */
+.page-enter { animation: pageIn 0.25s ease; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+  .full-mobile { width: 100% !important; }
+}
+
+/* ── THEME TRANSITION ────────────────────────────────── */
+*, *::before, *::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.1s ease;
+}
+/* But don't transition these (causes flicker) */
+input, select, textarea, button {
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s, color 0.1s;
+}
