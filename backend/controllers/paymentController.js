@@ -10,9 +10,9 @@ const recordPayment = async (req, res) => {
     const { memberId, amount, note, paymentMethod, date } = req.body;
 
     const adminId = req.user._id.toString();
-    const isAdminPayingHimself = memberId === adminId;
+    const isAdminSelfPayment = memberId === adminId;
 
-    // Validate the person paying belongs to the group
+    // Find the payer — either a member OR admin themselves
     const payer = await User.findOne({ _id: memberId, groupId: req.user.groupId });
     if (!payer) {
       return res.status(404).json({ success: false, message: 'Person not found in your group' });
@@ -33,15 +33,16 @@ const recordPayment = async (req, res) => {
       date: date || Date.now(),
     });
 
-    if (isAdminPayingHimself) {
-      // ✅ Admin settling own balance:
-      // Admin's balance decreases (he collected his own share or is settling something)
+    if (isAdminSelfPayment) {
+      // ✅ Admin paying their own share:
+      // Admin paid his own share from his pocket → his receivable reduces
+      // e.g. Admin balance was +3000 (others owe him), he pays his own 1000 → +2000
       await User.findByIdAndUpdate(adminId, { $inc: { balance: -amount } });
     } else {
       // ✅ Member paying admin:
       // Member's debt reduces (balance goes toward 0 from negative)
       await User.findByIdAndUpdate(memberId, { $inc: { balance: amount } });
-      // Admin's receivable reduces (he received this amount so less is owed to him)
+      // Admin's receivable reduces (he received this cash)
       await User.findByIdAndUpdate(adminId, { $inc: { balance: -amount } });
     }
 
@@ -55,7 +56,7 @@ const recordPayment = async (req, res) => {
       success: true,
       message: `Payment of Rs. ${amount} recorded from ${payer.name}`,
       payment: populatedPayment,
-      newMemberBalance: updatedPayer.balance,
+      newPayerBalance: updatedPayer.balance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -96,11 +97,7 @@ const getPayments = async (req, res) => {
       success: true,
       payments,
       monthlyTotal: monthlyTotal[0]?.total || 0,
-      pagination: {
-        total,
-        page: parseInt(page),
-        pages: Math.ceil(total / limit),
-      },
+      pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -126,10 +123,10 @@ const deletePayment = async (req, res) => {
     const isAdminSelfPayment = payment.member.toString() === adminId;
 
     if (isAdminSelfPayment) {
-      // Reverse admin's own payment
+      // Reverse admin self-payment → restore admin balance
       await User.findByIdAndUpdate(adminId, { $inc: { balance: payment.amount } });
     } else {
-      // Reverse member payment: restore member's debt, restore admin's receivable
+      // Reverse member payment → restore member's debt + restore admin's receivable
       await User.findByIdAndUpdate(payment.member, { $inc: { balance: -payment.amount } });
       await User.findByIdAndUpdate(payment.receivedBy, { $inc: { balance: payment.amount } });
     }
