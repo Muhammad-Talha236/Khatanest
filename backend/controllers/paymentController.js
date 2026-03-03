@@ -34,22 +34,29 @@ const recordPayment = async (req, res) => {
       date: date || Date.now(),
     });
 
-    // Update balances:
-    // Member's debt reduces (balance becomes less negative or positive)
+    // ✅ FIXED LOGIC:
+    // Member paid admin → member's debt reduces (balance goes toward 0 from negative)
+    // Member: balance += amount  (e.g. was -2000, now -2000 + 2000 = 0)
     await User.findByIdAndUpdate(memberId, { $inc: { balance: amount } });
 
-    // Admin received money, their balance decreases accordingly
+    // ✅ FIXED LOGIC:
+    // Admin received money → admin's receivable reduces
+    // Admin had +2000 (people owe him), now after receiving payment it becomes 0
+    // So admin balance also decreases by amount (receivable collected)
     await User.findByIdAndUpdate(req.user._id, { $inc: { balance: -amount } });
 
     const populatedPayment = await Payment.findById(payment._id)
       .populate('member', 'name email')
       .populate('receivedBy', 'name');
 
+    // Fetch updated member to return new balance
+    const updatedMember = await User.findById(memberId).select('balance');
+
     res.status(201).json({
       success: true,
       message: `Payment of Rs. ${amount} recorded from ${member.name}`,
       payment: populatedPayment,
-      newMemberBalance: member.balance + amount,
+      newMemberBalance: updatedMember.balance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -118,7 +125,7 @@ const deletePayment = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Reverse balance changes
+    // ✅ Reverse: member goes back to owing, admin's receivable goes back up
     await User.findByIdAndUpdate(payment.member, { $inc: { balance: -payment.amount } });
     await User.findByIdAndUpdate(payment.receivedBy, { $inc: { balance: payment.amount } });
 

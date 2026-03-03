@@ -12,17 +12,14 @@ const getExpenses = async (req, res) => {
 
     const query = { groupId: req.user.groupId };
 
-    // Search by title
     if (search) {
       query.title = { $regex: search, $options: 'i' };
     }
 
-    // Filter by category
     if (category && category !== 'all') {
       query.category = category;
     }
 
-    // Filter by date range
     if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
@@ -72,6 +69,8 @@ const addExpense = async (req, res) => {
       });
     }
 
+    const splitAmount = parseFloat((amount / dividedAmong.length).toFixed(2));
+
     // Create expense
     const expense = await Expense.create({
       title,
@@ -82,28 +81,33 @@ const addExpense = async (req, res) => {
       groupId: req.user.groupId,
       date: date || Date.now(),
       category: category || 'other',
+      splitAmount,
     });
 
-    // Update each member's balance (they owe their split amount)
-    const splitAmount = parseFloat((amount / dividedAmong.length).toFixed(2));
+    // ✅ FIXED BALANCE LOGIC:
+    // Admin paid the full amount. Now distribute balances:
+    // - Each NON-ADMIN member in dividedAmong: their balance goes negative (they owe admin)
+    // - Admin's balance increases by (total - admin's own share if included)
+
+    const adminId = req.user._id.toString();
+    const adminIncluded = dividedAmong.map(id => id.toString()).includes(adminId);
 
     for (const memberId of dividedAmong) {
-      // Skip if paidBy is also in dividedAmong (admin's own share)
-      if (memberId.toString() === req.user._id.toString()) continue;
-
+      if (memberId.toString() === adminId) continue; // Skip admin's own share
+      // Member owes splitAmount to admin
       await User.findByIdAndUpdate(memberId, {
-        $inc: { balance: -splitAmount }, // Member owes more
+        $inc: { balance: -splitAmount },
       });
     }
 
-    // Admin balance increases (they're owed the total minus their own share)
-    const adminShareCount = dividedAmong.includes(req.user._id.toString()) ? 1 : 0;
-    const adminOwed = amount - (adminShareCount * splitAmount);
-    if (adminOwed > 0) {
-      await User.findByIdAndUpdate(req.user._id, {
-        $inc: { balance: adminOwed },
-      });
-    }
+    // Admin's receivable = total amount - admin's own share (if included)
+    const adminOwed = adminIncluded
+      ? parseFloat((amount - splitAmount).toFixed(2))   // others' shares only
+      : parseFloat(amount.toFixed(2));                   // full amount since admin not splitting
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $inc: { balance: adminOwed },
+    });
 
     // Update group total expenses
     await Group.findByIdAndUpdate(req.user.groupId, {
@@ -139,25 +143,28 @@ const updateExpense = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Reverse old balance changes
+    const adminId = expense.paidBy.toString();
+
+    // ─── Reverse old balance changes ───────────────────────────
     const oldSplit = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
+    const oldAdminIncluded = expense.dividedAmong.map(id => id.toString()).includes(adminId);
 
     for (const memberId of expense.dividedAmong) {
-      if (memberId.toString() === expense.paidBy.toString()) continue;
+      if (memberId.toString() === adminId) continue;
       await User.findByIdAndUpdate(memberId, { $inc: { balance: oldSplit } });
     }
 
-    const oldAdminShareCount = expense.dividedAmong.includes(expense.paidBy) ? 1 : 0;
-    const oldAdminOwed = expense.amount - (oldAdminShareCount * oldSplit);
-    if (oldAdminOwed > 0) {
-      await User.findByIdAndUpdate(expense.paidBy, { $inc: { balance: -oldAdminOwed } });
-    }
+    const oldAdminOwed = oldAdminIncluded
+      ? parseFloat((expense.amount - oldSplit).toFixed(2))
+      : parseFloat(expense.amount.toFixed(2));
+
+    await User.findByIdAndUpdate(expense.paidBy, { $inc: { balance: -oldAdminOwed } });
 
     await Group.findByIdAndUpdate(req.user.groupId, {
       $inc: { totalExpenses: -expense.amount },
     });
 
-    // Update expense fields
+    // ─── Update expense fields ──────────────────────────────────
     const { title, description, amount, dividedAmong, date, category } = req.body;
     expense.title = title || expense.title;
     expense.description = description !== undefined ? description : expense.description;
@@ -165,21 +172,24 @@ const updateExpense = async (req, res) => {
     expense.dividedAmong = dividedAmong || expense.dividedAmong;
     expense.date = date || expense.date;
     expense.category = category || expense.category;
+    expense.splitAmount = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
     await expense.save();
 
-    // Apply new balance changes
+    // ─── Apply new balance changes ──────────────────────────────
     const newSplit = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
+    const newAdminId = req.user._id.toString();
+    const newAdminIncluded = expense.dividedAmong.map(id => id.toString()).includes(newAdminId);
 
     for (const memberId of expense.dividedAmong) {
-      if (memberId.toString() === req.user._id.toString()) continue;
+      if (memberId.toString() === newAdminId) continue;
       await User.findByIdAndUpdate(memberId, { $inc: { balance: -newSplit } });
     }
 
-    const newAdminShareCount = expense.dividedAmong.includes(req.user._id.toString()) ? 1 : 0;
-    const newAdminOwed = expense.amount - (newAdminShareCount * newSplit);
-    if (newAdminOwed > 0) {
-      await User.findByIdAndUpdate(req.user._id, { $inc: { balance: newAdminOwed } });
-    }
+    const newAdminOwed = newAdminIncluded
+      ? parseFloat((expense.amount - newSplit).toFixed(2))
+      : parseFloat(expense.amount.toFixed(2));
+
+    await User.findByIdAndUpdate(req.user._id, { $inc: { balance: newAdminOwed } });
 
     await Group.findByIdAndUpdate(req.user.groupId, {
       $inc: { totalExpenses: expense.amount },
@@ -206,19 +216,22 @@ const deleteExpense = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // Reverse balance changes
+    const adminId = expense.paidBy.toString();
     const splitAmount = parseFloat((expense.amount / expense.dividedAmong.length).toFixed(2));
+    const adminIncluded = expense.dividedAmong.map(id => id.toString()).includes(adminId);
 
+    // Reverse each member's balance
     for (const memberId of expense.dividedAmong) {
-      if (memberId.toString() === expense.paidBy.toString()) continue;
+      if (memberId.toString() === adminId) continue;
       await User.findByIdAndUpdate(memberId, { $inc: { balance: splitAmount } });
     }
 
-    const adminShareCount = expense.dividedAmong.includes(expense.paidBy) ? 1 : 0;
-    const adminOwed = expense.amount - (adminShareCount * splitAmount);
-    if (adminOwed > 0) {
-      await User.findByIdAndUpdate(expense.paidBy, { $inc: { balance: -adminOwed } });
-    }
+    // Reverse admin's receivable
+    const adminOwed = adminIncluded
+      ? parseFloat((expense.amount - splitAmount).toFixed(2))
+      : parseFloat(expense.amount.toFixed(2));
+
+    await User.findByIdAndUpdate(expense.paidBy, { $inc: { balance: -adminOwed } });
 
     await Group.findByIdAndUpdate(req.user.groupId, {
       $inc: { totalExpenses: -expense.amount },
@@ -239,7 +252,6 @@ const getStats = async (req, res) => {
   try {
     const groupId = req.user.groupId;
 
-    // Total expenses this month
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -248,7 +260,6 @@ const getStats = async (req, res) => {
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
 
-    // Weekly breakdown (last 7 days)
     const last7Days = new Date();
     last7Days.setDate(last7Days.getDate() - 6);
 
@@ -264,19 +275,18 @@ const getStats = async (req, res) => {
       { $sort: { '_id': 1 } },
     ]);
 
-    // Category breakdown
     const categoryData = await Expense.aggregate([
       { $match: { groupId: groupId, date: { $gte: startOfMonth } } },
       { $group: { _id: '$category', total: { $sum: '$amount' } } },
       { $sort: { total: -1 } },
     ]);
 
-    // Member balances
     const members = await User.find({ groupId }).select('name balance role');
 
-    // Total receivable (sum of negative balances = what members owe admin)
+    // ✅ FIXED: totalReceivable = sum of ONLY negative member balances (what members owe admin)
+    // Excludes admin's own balance
     const totalReceivable = members
-      .filter((m) => m.balance < 0)
+      .filter(m => m.role !== 'admin' && m.balance < 0)
       .reduce((sum, m) => sum + Math.abs(m.balance), 0);
 
     res.json({

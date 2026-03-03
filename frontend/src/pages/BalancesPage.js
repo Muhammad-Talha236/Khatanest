@@ -32,32 +32,34 @@ const BalancesPage = () => {
 
   const maxBalance = Math.max(...(data?.members || []).map(m => Math.abs(m.balance)), 1);
 
-  // Summary cards data
+  // ✅ FIXED: Summary cards with correct data
   const summaryCards = [
-    { 
-      label: 'Total Outstanding', 
-      value: `Rs. ${data?.summary?.totalReceivable?.toLocaleString() || 0}`, 
+    {
+      label: 'Total Receivable',
+      value: `Rs. ${data?.summary?.totalReceivable?.toLocaleString() || 0}`,
       color: 'var(--red)',
       bgColor: 'var(--red-soft)',
-      borderColor: 'rgba(255,92,106,0.3)'
+      borderColor: 'rgba(255,92,106,0.3)',
+      tooltip: 'Total amount members still owe admin'
     },
-    { 
-      label: 'Total Positive', 
-      value: `Rs. ${data?.summary?.totalPayable?.toLocaleString() || 0}`, 
+    {
+      label: 'Admin Balance',
+      value: `Rs. ${(data?.summary?.adminBalance || 0).toLocaleString()}`,
       color: 'var(--accent)',
       bgColor: 'var(--accent-soft)',
-      borderColor: 'var(--accent-glow)'
+      borderColor: 'var(--accent-glow)',
+      tooltip: 'Admin net receivable amount'
     },
-    { 
-      label: 'Total Members', 
-      value: data?.members?.length || 0, 
+    {
+      label: 'Total Members',
+      value: data?.members?.length || 0,
       color: 'var(--blue)',
       bgColor: 'var(--blue-soft)',
       borderColor: 'rgba(91,141,239,0.3)'
     },
-    { 
-      label: 'Settled Members', 
-      value: data?.members?.filter(m => m.balance === 0).length || 0, 
+    {
+      label: 'Settled Members',
+      value: data?.members?.filter(m => m.role !== 'admin' && m.balance === 0).length || 0,
       color: 'var(--yellow)',
       bgColor: 'var(--yellow-soft)',
       borderColor: 'rgba(255,181,71,0.3)'
@@ -68,34 +70,34 @@ const BalancesPage = () => {
     <div style={{ maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Header */}
       <div style={{ marginBottom: isMobile ? 20 : 28 }}>
-        <h2 style={{ 
-          fontFamily: "'Syne', sans-serif", 
-          fontWeight: 900, 
-          fontSize: isMobile ? (isSmallMobile ? 22 : 24) : 26, 
-          color: 'var(--text)', 
-          margin: 0 
+        <h2 style={{
+          fontFamily: "'Syne', sans-serif",
+          fontWeight: 900,
+          fontSize: isMobile ? (isSmallMobile ? 22 : 24) : 26,
+          color: 'var(--text)',
+          margin: 0
         }}>
           Balance Sheet
         </h2>
-        <p style={{ 
-          color: 'var(--text-muted)', 
-          margin: '4px 0 0', 
-          fontSize: isMobile ? 12 : 13 
+        <p style={{
+          color: 'var(--text-muted)',
+          margin: '4px 0 0',
+          fontSize: isMobile ? 12 : 13
         }}>
           Live view of who owes what
         </p>
       </div>
 
       {/* Summary Cards - 2x2 grid on mobile */}
-      <div style={{ 
+      <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
         gap: isMobile ? 8 : 16,
         marginBottom: isMobile ? 20 : 24
       }}>
         {summaryCards.map((card, i) => (
-          <div 
-            key={i} 
+          <div
+            key={i}
             style={{
               background: card.bgColor,
               border: `1px solid ${card.borderColor}`,
@@ -103,12 +105,12 @@ const BalancesPage = () => {
               padding: isMobile ? '14px 12px' : '18px 20px',
             }}
           >
-            <div style={{ 
-              fontSize: isMobile ? 10 : 11, 
-              color: 'var(--text-muted)', 
-              marginBottom: 4, 
-              textTransform: 'uppercase', 
-              letterSpacing: 0.6, 
+            <div style={{
+              fontSize: isMobile ? 10 : 11,
+              color: 'var(--text-muted)',
+              marginBottom: 4,
+              textTransform: 'uppercase',
+              letterSpacing: 0.6,
               fontWeight: 600,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -116,10 +118,10 @@ const BalancesPage = () => {
             }}>
               {card.label}
             </div>
-            <div style={{ 
-              fontFamily: "'Syne', sans-serif", 
-              fontWeight: 900, 
-              fontSize: isMobile ? (isSmallMobile ? 16 : 18) : 22, 
+            <div style={{
+              fontFamily: "'Syne', sans-serif",
+              fontWeight: 900,
+              fontSize: isMobile ? (isSmallMobile ? 16 : 18) : 22,
               color: card.color,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -131,66 +133,76 @@ const BalancesPage = () => {
         ))}
       </div>
 
-      {/* Main Content - Stack on mobile */}
-      <div style={{ 
+      {/* Main Content */}
+      <div style={{
         display: 'flex',
         flexDirection: 'column',
         gap: isMobile ? 16 : 20
       }}>
         {/* Individual Balances */}
-        <div style={{ 
-          background: 'var(--surface)', 
-          border: '1px solid var(--border)', 
-          borderRadius: 16, 
-          padding: isMobile ? 16 : 24 
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 16,
+          padding: isMobile ? 16 : 24
         }}>
-          <div style={{ 
-            fontWeight: 700, 
-            color: 'var(--text)', 
-            fontSize: isMobile ? 16 : 18, 
-            marginBottom: isMobile ? 16 : 20 
+          <div style={{
+            fontWeight: 700,
+            color: 'var(--text)',
+            fontSize: isMobile ? 16 : 18,
+            marginBottom: isMobile ? 16 : 20
           }}>
             Individual Balances
           </div>
-          
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: isMobile ? 16 : 20 
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: isMobile ? 16 : 20
           }}>
             {data?.members?.map((m, i) => {
               const color = COLORS[i % COLORS.length];
               const pct = Math.min((Math.abs(m.balance) / maxBalance) * 100, 100);
-              const barColor = m.balance >= 0 ? 'var(--accent)' : 'var(--red)';
-              
+
+              // ✅ Correct label for each member
+              const getStatusLabel = () => {
+                if (m.role === 'admin') {
+                  if (m.balance > 0) return 'Receivable (others owe you)';
+                  if (m.balance < 0) return 'Overpaid (you owe members)';
+                  return 'All settled';
+                }
+                if (m.balance < 0) return 'Owes admin';
+                if (m.balance > 0) return 'Admin owes this member';
+                return 'Settled';
+              };
+
               return (
                 <div key={m._id}>
-                  {/* Member info - stacked on mobile */}
-                  <div style={{ 
-                    display: 'flex', 
+                  <div style={{
+                    display: 'flex',
                     flexDirection: isSmallMobile ? 'column' : 'row',
                     alignItems: isSmallMobile ? 'flex-start' : 'center',
-                    justifyContent: 'space-between', 
+                    justifyContent: 'space-between',
                     marginBottom: 10,
                     gap: isSmallMobile ? 8 : 0
                   }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
                       gap: 12,
                       width: isSmallMobile ? '100%' : 'auto'
                     }}>
                       <Avatar name={m.name} size={isMobile ? 36 : 38} color={color} />
                       <div>
-                        <div style={{ 
-                          fontWeight: 700, 
-                          color: 'var(--text)', 
-                          fontSize: isMobile ? 14 : 15 
+                        <div style={{
+                          fontWeight: 700,
+                          color: 'var(--text)',
+                          fontSize: isMobile ? 14 : 15
                         }}>
                           {m.name}
                         </div>
-                        <div style={{ 
-                          fontSize: isMobile ? 11 : 12, 
+                        <div style={{
+                          fontSize: isMobile ? 11 : 12,
                           color: 'var(--text-muted)',
                           display: 'flex',
                           alignItems: 'center',
@@ -209,34 +221,32 @@ const BalancesPage = () => {
                             {m.role}
                           </span>
                           <span style={{ color: 'var(--text-dim)' }}>
-                            {m.balance > 0 ? 'Admin owes this member' : 
-                             m.balance < 0 ? 'Owes admin' : 'Settled'}
+                            {getStatusLabel()}
                           </span>
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Balance amount - full width on small mobile */}
-                    <div style={{ 
-                      fontWeight: 900, 
-                      fontSize: isMobile ? 16 : 18, 
+
+                    <div style={{
+                      fontWeight: 900,
+                      fontSize: isMobile ? 16 : 18,
                       fontFamily: "'Syne', sans-serif",
                       color: m.balance >= 0 ? 'var(--accent)' : 'var(--red)',
                       background: m.balance >= 0 ? 'var(--accent-soft)' : 'var(--red-soft)',
-                      padding: isSmallMobile ? '6px 12px' : '0',
-                      borderRadius: isSmallMobile ? 99 : 0,
+                      padding: isSmallMobile ? '6px 12px' : '4px 12px',
+                      borderRadius: 99,
                       width: isSmallMobile ? '100%' : 'auto',
                       textAlign: isSmallMobile ? 'center' : 'right'
                     }}>
                       {m.balance >= 0 ? '+' : ''}Rs. {m.balance?.toLocaleString()}
                     </div>
                   </div>
-                  
+
                   {/* Progress bar */}
-                  <div style={{ 
-                    height: 7, 
-                    borderRadius: 99, 
-                    background: 'var(--border)', 
+                  <div style={{
+                    height: 7,
+                    borderRadius: 99,
+                    background: 'var(--border)',
                     overflow: 'hidden',
                     marginTop: isSmallMobile ? 4 : 0
                   }}>
@@ -256,51 +266,51 @@ const BalancesPage = () => {
           </div>
         </div>
 
-        {/* Settlement Plan & Guide - Side by side on tablet, stacked on mobile */}
-        <div style={{ 
+        {/* Settlement Plan & Guide */}
+        <div style={{
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : (windowWidth <= 1024 ? '1fr 1fr' : '1fr 280px'),
           gap: isMobile ? 16 : 20
         }}>
           {/* Settlement Plan */}
-          <div style={{ 
-            background: 'linear-gradient(135deg, #0f1923, #0a1520)', 
-            border: '1px solid rgba(91,141,239,0.25)', 
-            borderRadius: 16, 
-            padding: isMobile ? 18 : 20 
+          <div style={{
+            background: 'linear-gradient(135deg, #0f1923, #0a1520)',
+            border: '1px solid rgba(91,141,239,0.25)',
+            borderRadius: 16,
+            padding: isMobile ? 18 : 20
           }}>
-            <div style={{ 
-              fontWeight: 700, 
-              color: 'var(--text)', 
-              fontSize: isMobile ? 15 : 16, 
-              marginBottom: 4 
+            <div style={{
+              fontWeight: 700,
+              color: 'var(--text)',
+              fontSize: isMobile ? 15 : 16,
+              marginBottom: 4
             }}>
               💡 Settlement Plan
             </div>
-            <p style={{ 
-              color: 'var(--text-muted)', 
-              fontSize: isMobile ? 12 : 13, 
-              marginBottom: 16, 
-              lineHeight: 1.5 
+            <p style={{
+              color: 'var(--text-muted)',
+              fontSize: isMobile ? 12 : 13,
+              marginBottom: 16,
+              lineHeight: 1.5
             }}>
               Minimum transactions to clear all balances:
             </p>
-            
+
             {data?.settlements?.length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: isMobile ? 16 : 20, 
-                color: 'var(--accent)', 
-                fontWeight: 700, 
-                fontSize: isMobile ? 14 : 15 
+              <div style={{
+                textAlign: 'center',
+                padding: isMobile ? 16 : 20,
+                color: 'var(--accent)',
+                fontWeight: 700,
+                fontSize: isMobile ? 14 : 15
               }}>
                 ✅ All Settled!
               </div>
             ) : (
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
-                gap: isMobile ? 8 : 10 
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: isMobile ? 8 : 10
               }}>
                 {data?.settlements?.map((s, i) => (
                   <div key={i} style={{
@@ -309,25 +319,25 @@ const BalancesPage = () => {
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.06)',
                   }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center', 
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
                       marginBottom: 4,
                       flexWrap: 'wrap',
                       gap: 4
                     }}>
                       <div style={{ fontSize: isMobile ? 12 : 13 }}>
                         <span style={{ color: 'var(--red)', fontWeight: 700 }}>{s.from}</span>
-                        <span style={{ color: 'var(--text-muted)' }}> pays </span>
+                        <span style={{ color: 'var(--text-muted)' }}> should pay </span>
                         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{s.to}</span>
                       </div>
                     </div>
-                    <div style={{ 
-                      fontFamily: "'Syne', sans-serif", 
-                      fontWeight: 800, 
-                      color: 'var(--yellow)', 
-                      fontSize: isMobile ? 16 : 18 
+                    <div style={{
+                      fontFamily: "'Syne', sans-serif",
+                      fontWeight: 800,
+                      color: 'var(--yellow)',
+                      fontSize: isMobile ? 16 : 18
                     }}>
                       Rs. {s.amount?.toLocaleString()}
                     </div>
@@ -338,56 +348,49 @@ const BalancesPage = () => {
           </div>
 
           {/* Balance Guide */}
-          <div style={{ 
-            background: 'var(--surface)', 
-            border: '1px solid var(--border)', 
-            borderRadius: 14, 
-            padding: isMobile ? 16 : 18 
+          <div style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 14,
+            padding: isMobile ? 16 : 18
           }}>
-            <div style={{ 
-              fontWeight: 700, 
-              color: 'var(--text)', 
-              fontSize: isMobile ? 14 : 15, 
-              marginBottom: isMobile ? 12 : 14 
+            <div style={{
+              fontWeight: 700,
+              color: 'var(--text)',
+              fontSize: isMobile ? 14 : 15,
+              marginBottom: isMobile ? 12 : 14
             }}>
               Balance Guide
             </div>
             {[
-              { color: 'var(--accent)', label: 'Positive (+)', desc: 'Admin owes them' },
-              { color: 'var(--red)', label: 'Negative (−)', desc: 'They owe admin' },
+              { color: 'var(--accent)', label: 'Admin (+)', desc: 'Members owe him this amount' },
+              { color: 'var(--red)', label: 'Member (−)', desc: 'This member owes admin' },
               { color: 'var(--text-muted)', label: 'Zero (0)', desc: 'Fully settled' },
             ].map((g, i) => (
-              <div key={i} style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: isMobile ? 8 : 10, 
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? 8 : 10,
                 marginBottom: isMobile ? 8 : 10,
                 flexWrap: 'wrap'
               }}>
-                <div style={{ 
-                  width: isMobile ? 8 : 10, 
-                  height: isMobile ? 8 : 10, 
-                  borderRadius: '50%', 
-                  background: g.color, 
-                  flexShrink: 0 
+                <div style={{
+                  width: isMobile ? 8 : 10,
+                  height: isMobile ? 8 : 10,
+                  borderRadius: '50%',
+                  background: g.color,
+                  flexShrink: 0
                 }} />
-                <div style={{ 
+                <div style={{
                   display: 'flex',
                   flexDirection: isMobile ? 'column' : 'row',
                   alignItems: isMobile ? 'flex-start' : 'center',
                   gap: isMobile ? 2 : 6
                 }}>
-                  <span style={{ 
-                    fontSize: isMobile ? 12 : 13, 
-                    fontWeight: 600, 
-                    color: g.color 
-                  }}>
+                  <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, color: g.color }}>
                     {g.label}
                   </span>
-                  <span style={{ 
-                    fontSize: isMobile ? 11 : 12, 
-                    color: 'var(--text-muted)' 
-                  }}>
+                  <span style={{ fontSize: isMobile ? 11 : 12, color: 'var(--text-muted)' }}>
                     — {g.desc}
                   </span>
                 </div>

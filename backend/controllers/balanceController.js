@@ -11,29 +11,36 @@ const getBalances = async (req, res) => {
     const members = await User.find({ groupId: req.user.groupId })
       .select('name email role balance');
 
+    // ✅ FIXED: totalReceivable = only NON-ADMIN members with NEGATIVE balance
+    // These are people who OWE the admin money
     const totalReceivable = members
-      .filter(m => m.balance < 0)
+      .filter(m => m.role !== 'admin' && m.balance < 0)
       .reduce((sum, m) => sum + Math.abs(m.balance), 0);
 
-    const totalPayable = members
-      .filter(m => m.balance > 0 && m.role !== 'admin')
-      .reduce((sum, m) => sum + m.balance, 0);
+    // ✅ FIXED: totalCollected = payments made this month (admin's balance tracks this)
+    // Admin balance = what is still owed to him
+    const adminMember = members.find(m => m.role === 'admin');
+    const adminBalance = adminMember ? adminMember.balance : 0;
 
     // Settlement suggestions using greedy algorithm
-    const debtors = members.filter(m => m.balance < 0 && m.role !== 'admin')
+    // Debtors = members who owe admin (negative balance, non-admin)
+    const debtors = members
+      .filter(m => m.role !== 'admin' && m.balance < 0)
       .map(m => ({ id: m._id, name: m.name, amount: Math.abs(m.balance) }));
 
-    const creditors = members.filter(m => m.balance > 0 && m.role === 'admin')
+    // Creditor = admin (has positive balance = others owe him)
+    const creditors = members
+      .filter(m => m.role === 'admin' && m.balance > 0)
       .map(m => ({ id: m._id, name: m.name, amount: m.balance }));
 
     const settlements = [];
     let i = 0, j = 0;
-    const d = debtors.map(d => ({ ...d }));
-    const c = creditors.map(c => ({ ...c }));
+    const d = debtors.map(x => ({ ...x }));
+    const c = creditors.map(x => ({ ...x }));
 
     while (i < d.length && j < c.length) {
       const amount = Math.min(d[i].amount, c[j].amount);
-      if (amount > 0) {
+      if (amount > 0.01) {
         settlements.push({
           from: d[i].name,
           fromId: d[i].id,
@@ -44,14 +51,17 @@ const getBalances = async (req, res) => {
       }
       d[i].amount -= amount;
       c[j].amount -= amount;
-      if (d[i].amount === 0) i++;
-      if (c[j].amount === 0) j++;
+      if (d[i].amount < 0.01) i++;
+      if (c[j].amount < 0.01) j++;
     }
 
     res.json({
       success: true,
       members,
-      summary: { totalReceivable, totalPayable },
+      summary: {
+        totalReceivable,          // Total amount members still owe
+        adminBalance,             // Admin's net receivable balance
+      },
       settlements,
     });
   } catch (error) {
@@ -67,7 +77,6 @@ const getHistory = async (req, res) => {
     const { page = 1, limit = 15 } = req.query;
     const groupId = req.user.groupId;
 
-    // For members, only show their relevant transactions
     const expenseQuery = req.user.role === 'member'
       ? { groupId, dividedAmong: req.user._id }
       : { groupId };
@@ -85,7 +94,6 @@ const getHistory = async (req, res) => {
       .populate('member', 'name')
       .populate('receivedBy', 'name');
 
-    // Combine and sort by date
     const combined = [
       ...expenses.map(e => ({
         type: 'expense',
