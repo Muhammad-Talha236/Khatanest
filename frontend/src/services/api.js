@@ -1,7 +1,7 @@
 // services/api.js - Axios instance and all API calls
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance
 const api = axios.create({
