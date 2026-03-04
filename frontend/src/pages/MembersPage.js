@@ -55,6 +55,19 @@ const MembersPage = () => {
     } finally { setRemoving(false); }
   };
 
+  // ✅ Correct balance label per role
+  const getBalanceLabel = (m) => {
+    if (m.role === 'admin') {
+      if (m.balance > 0)  return 'Members owe you';
+      if (m.balance < 0)  return 'You overspent';
+      return 'All settled';
+    }
+    // member
+    if (m.balance < 0)  return 'Owes admin';
+    if (m.balance > 0)  return 'Admin owes member';
+    return 'Settled';
+  };
+
   if (loading) return <Spinner message="Loading members..." />;
 
   return (
@@ -75,6 +88,13 @@ const MembersPage = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
         {group?.members?.map((m, i) => {
           const color = COLORS[i % COLORS.length];
+          // ✅ For members: positive balance = good (admin owes them), negative = owes admin
+          // ✅ For admin: positive balance = members owe him (good), negative = overspent
+          const isPositive = m.balance >= 0;
+          const balanceColor  = isPositive ? 'var(--accent)' : 'var(--red)';
+          const balanceBg     = isPositive ? 'var(--accent-soft)' : 'var(--red-soft)';
+          const balanceBorder = isPositive ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)';
+
           return (
             <div key={m._id} style={{
               background: `linear-gradient(135deg, var(--surface), ${color}0A)`,
@@ -99,17 +119,18 @@ const MembersPage = () => {
                 }}>{m.role === 'admin' ? '👑 ADMIN' : '👤 MEMBER'}</span>
               </div>
 
+              {/* ✅ Balance card with correct label */}
               <div style={{
                 padding: '12px', borderRadius: 10,
-                background: m.balance >= 0 ? 'var(--accent-soft)' : 'var(--red-soft)',
-                border: `1px solid ${m.balance >= 0 ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)'}`,
+                background: balanceBg,
+                border: `1px solid ${balanceBorder}`,
                 marginBottom: 14,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {m.balance >= 0 ? 'Admin owes' : 'Owes admin'}
+                    {getBalanceLabel(m)}
                   </span>
-                  <span style={{ fontWeight: 800, color: m.balance >= 0 ? 'var(--accent)' : 'var(--red)', fontSize: 16 }}>
+                  <span style={{ fontWeight: 800, color: balanceColor, fontSize: 16 }}>
                     {m.balance >= 0 ? '+' : ''}Rs. {m.balance?.toLocaleString()}
                   </span>
                 </div>
