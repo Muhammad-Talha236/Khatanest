@@ -338,6 +338,23 @@ const getStats = async (req, res) => {
       remaining : Math.max(0, (adminMember.adminShareOwed || 0) - (adminMember.adminSharePaid || 0)),
     } : null;
 
+    const isAdmin = req.user.role === 'admin';
+
+    // ✅ PRIVACY: Members only receive their own balance + weekly chart.
+    // They do NOT see: other member balances, admin receivable, group totals,
+    // category breakdown, or admin personal share stats.
+    if (!isAdmin) {
+      const myBalance = members.find(m => m._id.toString() === req.user._id.toString());
+      return res.json({
+        success: true,
+        stats  : {
+          weeklyData,
+          memberBalances: myBalance ? [myBalance] : [],
+        },
+      });
+    }
+
+    // Admin gets full data
     res.json({
       success: true,
       stats  : {
