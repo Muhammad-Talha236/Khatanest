@@ -107,17 +107,19 @@ const DashboardPage = () => {
     return { day, amount: found?.total || 0 };
   });
 
-  // ✅ FIX 1: Admin ka apna net balance (sirf +/- value from user object)
-  // Positive = members usse paise dete hain
-  // Negative = admin ne zyada de diya
+  // My Balance = admin ka personal net balance (normal user ki tarah)
+  // +ve = members usse dete hain, -ve = admin ne zyada spend kiya
   const adminNetBalance = user?.balance ?? 0;
 
-  // ✅ FIX 2: Total Receivable = jo members abhi bhi dene hain (negative balance wale members)
+  // Total Receivable = jo members abhi bhi admin ko dene hain
   const totalReceivable = stats?.totalReceivable || 0;
 
-  // ✅ FIX 3: "Available in Khata" = admin ka current net balance
-  // Yeh woh amount hai jo admin ko milna chahiye (jo baaki hai)
-  const availableBalance = adminNetBalance;
+  // Khata Balance = ALL members ka combined positive balance
+  // (admin ka +ve balance + koi bhi member jo overpaid ho)
+  // Yeh represent karta hai total "credit" ya "available" amount in the system
+  const availableBalance = (stats?.memberBalances || [])
+    .filter(m => m.balance > 0)
+    .reduce((sum, m) => sum + m.balance, 0);
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'hidden' }}>
@@ -226,9 +228,7 @@ const DashboardPage = () => {
               color: 'rgba(255,255,255,0.4)',
               marginTop: 6,
             }}>
-              {availableBalance >= 0
-                ? `Members owe you this amount`
-                : `You have overspent by this amount`}
+              {availableBalance > 0 ? `Total credit across all members` : `No outstanding balance in khata`}
             </div>
           </div>
 
@@ -445,8 +445,8 @@ const DashboardPage = () => {
                   justifyContent: 'space-between',
                   padding: isMobile ? '12px' : '10px 14px',
                   borderRadius: 12,
-                  background: t.type === 'payment' ? 'var(--accent-soft)' : 'var(--red-soft)',
-                  border: `1px solid ${t.type === 'payment' ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)'}`,
+                  background: t.isAdminSelfPayment ? 'var(--surface-alt)' : t.type === 'payment' ? 'var(--accent-soft)' : 'var(--red-soft)',
+                  border: `1px solid ${t.isAdminSelfPayment ? 'var(--border)' : t.type === 'payment' ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)'}`,
                   gap: isSmallMobile ? 8 : 0,
                 }}>
                   <div style={{
@@ -454,7 +454,7 @@ const DashboardPage = () => {
                     gap: isMobile ? 10 : 12, flex: 1
                   }}>
                     <span style={{ fontSize: isMobile ? 18 : 20 }}>
-                      {t.type === 'payment' ? '💵' : '🧾'}
+                      {t.isAdminSelfPayment ? '🧾' : t.type === 'payment' ? '💵' : '🧾'}
                     </span>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{
@@ -474,11 +474,11 @@ const DashboardPage = () => {
                   </div>
                   <div style={{
                     fontWeight: 700, fontSize: isMobile ? 14 : 14,
-                    color: t.type === 'payment' ? 'var(--accent)' : 'var(--red)',
+                    color: t.isAdminSelfPayment ? 'var(--text-muted)' : t.type === 'payment' ? 'var(--accent)' : 'var(--red)',
                     textAlign: 'right',
                     paddingLeft: isSmallMobile ? 28 : 0,
                   }}>
-                    {t.type === 'payment' ? '+' : '-'}Rs. {t.amount?.toLocaleString()}
+                    {t.isAdminSelfPayment ? '' : t.type === 'payment' ? '+' : '-'}Rs. {t.amount?.toLocaleString()}
                   </div>
                 </div>
               ))}

@@ -1,5 +1,5 @@
 // controllers/balanceController.js
-const User = require('../models/User');
+const User    = require('../models/User');
 const Expense = require('../models/Expense');
 const Payment = require('../models/Payment');
 
@@ -8,29 +8,29 @@ const getBalances = async (req, res) => {
     const members = await User.find({ groupId: req.user.groupId })
       .select('name email role balance');
 
-    const adminMember = members.find(m => m.role === 'admin');
+    const adminMember  = members.find(m => m.role === 'admin');
     const adminBalance = adminMember ? adminMember.balance : 0;
 
-    // Total still owed to admin by members
+    // Total still owed to admin by members (negative member balances)
     const totalReceivable = members
       .filter(m => m.role !== 'admin' && m.balance < 0)
       .reduce((sum, m) => sum + Math.abs(m.balance), 0);
 
-    // ✅ FIXED: Show ALL negative balance members in settlement (not just up to admin's balance)
+    // Settlement suggestions — each member who still owes admin
     const settlements = members
       .filter(m => m.role !== 'admin' && m.balance < 0)
       .map(m => ({
-        from: m.name,
+        from  : m.name,
         fromId: m._id,
-        to: adminMember?.name || 'Admin',
-        toId: adminMember?._id,
+        to    : adminMember?.name || 'Admin',
+        toId  : adminMember?._id,
         amount: parseFloat(Math.abs(m.balance).toFixed(2)),
       }));
 
     res.json({
-      success: true,
+      success : true,
       members,
-      summary: { totalReceivable, adminBalance },
+      summary : { totalReceivable, adminBalance },
       settlements,
     });
   } catch (error) {
@@ -57,41 +57,50 @@ const getHistory = async (req, res) => {
       .select('title description descriptionCleared amount splitAmount date category dividedAmong paidBy');
 
     const payments = await Payment.find(paymentQuery)
-      .populate('member', 'name')
+      .populate('member', 'name role')
       .populate('receivedBy', 'name');
 
     const combined = [
       ...expenses.map(e => ({
-        type: 'expense',
-        _id: e._id,
-        title: e.title,
-        description: e.descriptionCleared ? '(Description cleared after 21 days)' : e.description,
-        amount: e.amount,
-        splitAmount: e.splitAmount,
-        date: e.date,
-        category: e.category,
-        paidBy: e.paidBy,
+        type        : 'expense',
+        _id         : e._id,
+        title       : e.title,
+        description : e.descriptionCleared ? '(Description cleared after 21 days)' : e.description,
+        amount      : e.amount,
+        splitAmount : e.splitAmount,
+        date        : e.date,
+        category    : e.category,
+        paidBy      : e.paidBy,
         dividedAmong: e.dividedAmong,
       })),
-      ...payments.map(p => ({
-        type: 'payment',
-        _id: p._id,
-        title: `Payment from ${p.member?.name}`,
-        description: p.note,
-        amount: p.amount,
-        date: p.date,
-        member: p.member,
-        receivedBy: p.receivedBy,
-        paymentMethod: p.paymentMethod,
-      })),
+      ...payments.map(p => {
+        // ✅ Correct title: admin self-payment vs member payment
+        const isAdminSelf = p.isAdminSelfPayment || p.member?.role === 'admin';
+        const title = isAdminSelf
+          ? `${p.member?.name} paid own share`
+          : `Payment from ${p.member?.name}`;
+
+        return {
+          type             : 'payment',
+          _id              : p._id,
+          title,
+          description      : p.note,
+          amount           : p.amount,
+          date             : p.date,
+          member           : p.member,
+          receivedBy       : p.receivedBy,
+          paymentMethod    : p.paymentMethod,
+          isAdminSelfPayment: isAdminSelf,
+        };
+      }),
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    const total = combined.length;
+    const total     = combined.length;
     const paginated = combined.slice((page - 1) * limit, page * limit);
 
     res.json({
-      success: true,
-      history: paginated,
+      success   : true,
+      history   : paginated,
       pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) },
     });
   } catch (error) {
