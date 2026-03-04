@@ -32,39 +32,48 @@ api.interceptors.response.use(
 // ─── Auth ─────────────────────────────────────────────────────────
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
-  login: (data) => api.post('/auth/login', data),
-  getMe: () => api.get('/auth/me'),
+  login   : (data) => api.post('/auth/login', data),
+  getMe   : ()     => api.get('/auth/me'),
+  // NOTE: forgotPassword requires a dedicated backend route (/api/auth/forgot-password).
+  // It is not implemented in this version. The ForgotPasswordPage is included for UI
+  // completeness — calling this will return a 404 until the route is added.
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
 };
 
 // ─── Group ────────────────────────────────────────────────────────
 export const groupAPI = {
-  getGroup: () => api.get('/group'),
-  updateGroup: (data) => api.put('/group', data),
-  addMember: (data) => api.post('/group/members', data),
-  removeMember: (id) => api.delete(`/group/members/${id}`),
-  monthlyReset: () => api.post('/group/reset'),
+  getGroup    : ()       => api.get('/group'),
+  updateGroup : (data)   => api.put('/group', data),
+  addMember   : (data)   => api.post('/group/members', data),
+  removeMember: (id)     => api.delete(`/group/members/${id}`),
+  monthlyReset: ()       => api.post('/group/reset'),
 };
 
 // ─── Expenses ─────────────────────────────────────────────────────
 export const expenseAPI = {
-  getExpenses: (params) => api.get('/expenses', { params }),
-  addExpense: (data) => api.post('/expenses', data),
-  updateExpense: (id, data) => api.put(`/expenses/${id}`, data),
-  deleteExpense: (id) => api.delete(`/expenses/${id}`),
-  getStats: () => api.get('/expenses/stats'),
+  getExpenses   : (params)    => api.get('/expenses', { params }),
+  addExpense    : (data)      => api.post('/expenses', data),
+  updateExpense : (id, data)  => api.put(`/expenses/${id}`, data),
+  deleteExpense : (id)        => api.delete(`/expenses/${id}`),
+  getStats      : ()          => api.get('/expenses/stats'),
 };
 
 // ─── Payments ─────────────────────────────────────────────────────
+// params.type: '' | 'member' | 'self'
+//   ''       = all payments
+//   'member' = only member-to-admin payments
+//   'self'   = only admin's own share payments
 export const paymentAPI = {
-  getPayments: (params) => api.get('/payments', { params }),
-  recordPayment: (data) => api.post('/payments', data),
-  deletePayment: (id) => api.delete(`/payments/${id}`),
+  getPayments   : (params) => api.get('/payments', { params }),
+  recordPayment : (data)   => api.post('/payments', data),
+  deletePayment : (id)     => api.delete(`/payments/${id}`),
 };
 
 // ─── Balances ─────────────────────────────────────────────────────
+// params.type: '' | 'expense' | 'payment' | 'member' | 'self'
 export const balanceAPI = {
-  getBalances: () => api.get('/balances'),
-  getHistory: (params) => api.get('/balances/history', { params }),
+  getBalances: ()       => api.get('/balances'),
+  getHistory : (params) => api.get('/balances/history', { params }),
 };
 
 export default api;

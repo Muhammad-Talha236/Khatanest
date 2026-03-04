@@ -6,7 +6,7 @@ const Payment = require('../models/Payment');
 const getBalances = async (req, res) => {
   try {
     const members = await User.find({ groupId: req.user.groupId })
-      .select('name email role balance');
+      .select('name email role balance adminShareOwed adminSharePaid');
 
     const adminMember  = members.find(m => m.role === 'admin');
     const adminBalance = adminMember ? adminMember.balance : 0;
@@ -15,6 +15,13 @@ const getBalances = async (req, res) => {
     const totalReceivable = members
       .filter(m => m.role !== 'admin' && m.balance < 0)
       .reduce((sum, m) => sum + Math.abs(m.balance), 0);
+
+    // Admin's own share summary
+    const adminShareStats = adminMember ? {
+      totalOwed : adminMember.adminShareOwed  || 0,
+      totalPaid : adminMember.adminSharePaid  || 0,
+      remaining : Math.max(0, (adminMember.adminShareOwed || 0) - (adminMember.adminSharePaid || 0)),
+    } : null;
 
     // Settlement suggestions — each member who still owes admin
     const settlements = members
@@ -30,7 +37,7 @@ const getBalances = async (req, res) => {
     res.json({
       success : true,
       members,
-      summary : { totalReceivable, adminBalance },
+      summary : { totalReceivable, adminBalance, adminShareStats },
       settlements,
     });
   } catch (error) {
@@ -40,7 +47,7 @@ const getBalances = async (req, res) => {
 
 const getHistory = async (req, res) => {
   try {
-    const { page = 1, limit = 15 } = req.query;
+    const { page = 1, limit = 15, type } = req.query;
     const groupId = req.user.groupId;
 
     const expenseQuery = req.user.role === 'member'
@@ -51,13 +58,20 @@ const getHistory = async (req, res) => {
       ? { groupId, member: req.user._id }
       : { groupId };
 
+    // Apply type filter for payments
+    if (type === 'member') {
+      paymentQuery.isAdminSelfPayment = { $ne: true };
+    } else if (type === 'self') {
+      paymentQuery.isAdminSelfPayment = true;
+    }
+
     const expenses = await Expense.find(expenseQuery)
-      .populate('paidBy', 'name')
+      .populate('paidBy',       'name')
       .populate('dividedAmong', 'name')
       .select('title description descriptionCleared amount splitAmount date category dividedAmong paidBy');
 
     const payments = await Payment.find(paymentQuery)
-      .populate('member', 'name role')
+      .populate('member',     'name role')
       .populate('receivedBy', 'name');
 
     const combined = [
@@ -65,7 +79,9 @@ const getHistory = async (req, res) => {
         type        : 'expense',
         _id         : e._id,
         title       : e.title,
-        description : e.descriptionCleared ? '(Description cleared after 21 days)' : e.description,
+        description : e.descriptionCleared
+          ? '(Description cleared after 21 days)'
+          : e.description,
         amount      : e.amount,
         splitAmount : e.splitAmount,
         date        : e.date,
@@ -74,34 +90,52 @@ const getHistory = async (req, res) => {
         dividedAmong: e.dividedAmong,
       })),
       ...payments.map(p => {
-        // ✅ Correct title: admin self-payment vs member payment
-        const isAdminSelf = p.isAdminSelfPayment || p.member?.role === 'admin';
+        // ✅ FIXED: Only use isAdminSelfPayment flag — NOT member.role
+        //    Previously, checking role caused ALL admin-recorded payments to look
+        //    like self-payments even when recording a regular member's payment.
+        const isAdminSelf = p.isAdminSelfPayment === true;
         const title = isAdminSelf
           ? `${p.member?.name} paid own share`
           : `Payment from ${p.member?.name}`;
 
         return {
-          type             : 'payment',
-          _id              : p._id,
+          type              : 'payment',
+          _id               : p._id,
           title,
-          description      : p.note,
-          amount           : p.amount,
-          date             : p.date,
-          member           : p.member,
-          receivedBy       : p.receivedBy,
-          paymentMethod    : p.paymentMethod,
+          description       : p.note,
+          amount            : p.amount,
+          date              : p.date,
+          member            : p.member,
+          receivedBy        : p.receivedBy,
+          paymentMethod     : p.paymentMethod,
           isAdminSelfPayment: isAdminSelf,
         };
       }),
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    const total     = combined.length;
-    const paginated = combined.slice((page - 1) * limit, page * limit);
+    const total = combined.length;
+
+    // Apply expense-type filter if needed
+    let filtered = combined;
+    if (type === 'expense') {
+      filtered = combined.filter(t => t.type === 'expense');
+    } else if (type === 'payment' || type === 'member') {
+      filtered = combined.filter(t => t.type === 'payment' && !t.isAdminSelfPayment);
+    } else if (type === 'self') {
+      filtered = combined.filter(t => t.type === 'payment' && t.isAdminSelfPayment);
+    }
+
+    const filteredTotal = filtered.length;
+    const paginated     = filtered.slice((page - 1) * limit, page * limit);
 
     res.json({
       success   : true,
       history   : paginated,
-      pagination: { total, page: parseInt(page), pages: Math.ceil(total / limit) },
+      pagination: {
+        total: filteredTotal,
+        page : parseInt(page),
+        pages: Math.ceil(filteredTotal / limit),
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

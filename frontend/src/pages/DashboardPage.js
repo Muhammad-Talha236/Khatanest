@@ -1,4 +1,4 @@
-// pages/DashboardPage.js - Fixed My Balance + Added Available Balance card
+// pages/DashboardPage.js - Fixed balance calculations + admin share card
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -10,38 +10,32 @@ import { format } from 'date-fns';
 
 const StatCard = ({ icon, label, value, sub, color = '#2ECC9A' }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 480);
-
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 480);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const handler = () => setIsMobile(window.innerWidth <= 480);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
   }, []);
 
   return (
     <div style={{
       background: `linear-gradient(135deg, var(--surface) 60%, ${color}08)`,
       border: '1px solid var(--border)', borderRadius: 16,
-      padding: isMobile ? 14 : 20,
-      flex: '1 1 140px',
-      minWidth: isMobile ? 'calc(50% - 6px)' : 160,
-      position: 'relative', overflow: 'hidden',
+      padding: isMobile ? 14 : 20, position: 'relative', overflow: 'hidden',
     }}>
       <div style={{
         position: 'absolute', top: 0, right: 0, width: 60, height: 60,
-        background: `radial-gradient(circle at top right, ${color}15, transparent 70%)`
+        background: `radial-gradient(circle at top right, ${color}15, transparent 70%)`,
       }} />
       <div style={{ fontSize: isMobile ? 20 : 22, marginBottom: 6 }}>{icon}</div>
       <div style={{
         fontFamily: "'Syne', sans-serif", fontWeight: 900,
-        fontSize: isMobile ? 18 : 24, color,
-        letterSpacing: -1, whiteSpace: 'nowrap',
-        overflow: 'hidden', textOverflow: 'ellipsis'
+        fontSize: isMobile ? 18 : 24, color, letterSpacing: -1,
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{value}</div>
       <div style={{
         fontSize: isMobile ? 10 : 12, color: 'var(--text-muted)',
         marginTop: 4, fontWeight: 600, textTransform: 'uppercase',
-        letterSpacing: 0.6, whiteSpace: 'nowrap',
-        overflow: 'hidden', textOverflow: 'ellipsis'
+        letterSpacing: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{label}</div>
       {sub && <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}>{sub}</div>}
     </div>
@@ -53,7 +47,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return (
     <div style={{
       background: 'var(--surface-alt)', border: '1px solid var(--border)',
-      borderRadius: 10, padding: '8px 14px'
+      borderRadius: 10, padding: '8px 14px',
     }}>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
       <div style={{ fontWeight: 700, color: 'var(--accent)' }}>Rs. {payload[0].value?.toLocaleString()}</div>
@@ -64,15 +58,15 @@ const CustomTooltip = ({ active, payload, label }) => {
 const DashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState(null);
+  const [stats, setStats]     = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const handler = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
   }, []);
 
   useEffect(() => {
@@ -95,7 +89,7 @@ const DashboardPage = () => {
 
   if (loading) return <Spinner message="Loading dashboard..." />;
 
-  const isMobile = windowWidth <= 768;
+  const isMobile      = windowWidth <= 768;
   const isSmallMobile = windowWidth <= 480;
 
   const weekDays = isMobile
@@ -107,19 +101,12 @@ const DashboardPage = () => {
     return { day, amount: found?.total || 0 };
   });
 
-  // My Balance = admin ka personal net balance (normal user ki tarah)
-  // +ve = members usse dete hain, -ve = admin ne zyada spend kiya
+  // Admin's net balance (what members owe him)
   const adminNetBalance = user?.balance ?? 0;
-
-  // Total Receivable = jo members abhi bhi admin ko dene hain
+  // Total receivable from members
   const totalReceivable = stats?.totalReceivable || 0;
-
-  // Khata Balance = ALL members ka combined positive balance
-  // (admin ka +ve balance + koi bhi member jo overpaid ho)
-  // Yeh represent karta hai total "credit" ya "available" amount in the system
-  const availableBalance = (stats?.memberBalances || [])
-    .filter(m => m.balance > 0)
-    .reduce((sum, m) => sum + m.balance, 0);
+  // ✅ FIXED: adminShareStats from stats — admin's own share tracking
+  const adminShareStats = stats?.adminShareStats || null;
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'hidden' }}>
@@ -128,7 +115,7 @@ const DashboardPage = () => {
         <h1 style={{
           fontFamily: "'Syne', sans-serif", fontWeight: 900,
           fontSize: isMobile ? (isSmallMobile ? 18 : 20) : 24,
-          color: 'var(--text)', margin: 0, letterSpacing: -0.5, lineHeight: 1.3
+          color: 'var(--text)', margin: 0, letterSpacing: -0.5, lineHeight: 1.3,
         }}>
           Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'},
           <span style={{ display: isSmallMobile ? 'block' : 'inline' }}> {user?.name?.split(' ')[0]} 👋</span>
@@ -138,38 +125,30 @@ const DashboardPage = () => {
         </p>
       </div>
 
-      {/* ✅ FIXED Stat Cards - 2x2 grid on mobile, 4 cols on desktop */}
+      {/* Stat Cards */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
-        gap: isMobile ? 8 : 16,
-        marginBottom: isMobile ? 16 : 24
+        gap: isMobile ? 8 : 16, marginBottom: isMobile ? 16 : 24,
       }}>
-        {/* Card 1: My Balance — admin ka sirf apna +/- balance */}
         <StatCard
           icon="💰"
-          label="My Balance"
+          label="Members Owe Me"
           value={`${adminNetBalance >= 0 ? '+' : ''}Rs. ${Math.abs(adminNetBalance).toLocaleString()}`}
           color={adminNetBalance >= 0 ? '#2ECC9A' : '#FF5C6A'}
         />
-
-        {/* Card 2: Monthly expenses total */}
         <StatCard
           icon="📊"
-          label="Monthly"
+          label="Monthly Expenses"
           value={`Rs. ${(stats?.monthlyTotal || 0).toLocaleString()}`}
           color="#5B8DEF"
         />
-
-        {/* Card 3: Receivable — jo members abhi dene hain */}
         <StatCard
           icon="📥"
           label="Receivable"
           value={`Rs. ${totalReceivable.toLocaleString()}`}
           color="#FFB547"
         />
-
-        {/* Card 4: Members count */}
         <StatCard
           icon="👥"
           label="Members"
@@ -178,85 +157,89 @@ const DashboardPage = () => {
         />
       </div>
 
-      {/* ✅ NEW: Khata Balance Banner — prominent display */}
-      {user?.role === 'admin' && (
+      {/* ✅ NEW: Admin's Personal Share Tracker Banner */}
+      {user?.role === 'admin' && adminShareStats && adminShareStats.totalOwed > 0 && (
         <div style={{
-          background: 'linear-gradient(135deg, #0f1f18 0%, #0a1a14 100%)',
-          border: '1px solid rgba(46,204,154,0.3)',
-          borderRadius: 16,
-          padding: isMobile ? '16px 20px' : '20px 28px',
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          gap: isMobile ? 12 : 16,
           marginBottom: isMobile ? 16 : 24,
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          position: 'relative',
-          overflow: 'hidden',
         }}>
-          {/* Background glow */}
+          {/* Receivable banner */}
           <div style={{
-            position: 'absolute', top: -30, right: -30,
-            width: 120, height: 120, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(46,204,154,0.15), transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-
-          <div>
+            background: 'linear-gradient(135deg, #0f1923, #0a1520)',
+            border: '1px solid rgba(46,204,154,0.3)', borderRadius: 16,
+            padding: isMobile ? '16px 20px' : '20px 24px',
+            position: 'relative', overflow: 'hidden',
+          }}>
             <div style={{
-              fontSize: isMobile ? 11 : 12,
-              color: 'rgba(46,204,154,0.7)',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: 1,
-              marginBottom: 6,
-            }}>
-              🏦 Khata Balance (Available)
+              position: 'absolute', top: -30, right: -30, width: 100, height: 100,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(46,204,154,0.15), transparent 70%)',
+              pointerEvents: 'none',
+            }} />
+            <div style={{ fontSize: 11, color: 'rgba(46,204,154,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+              📥 Total Receivable from Members
             </div>
             <div style={{
-              fontFamily: "'Syne', sans-serif",
-              fontWeight: 900,
-              fontSize: isMobile ? 28 : 36,
-              color: availableBalance >= 0 ? '#2ECC9A' : '#FF5C6A',
-              letterSpacing: -1,
-              lineHeight: 1,
+              fontFamily: "'Syne', sans-serif", fontWeight: 900,
+              fontSize: isMobile ? 26 : 32, color: '#2ECC9A', letterSpacing: -1, lineHeight: 1,
             }}>
-              {availableBalance >= 0 ? '+' : ''}Rs. {Math.abs(availableBalance).toLocaleString()}
+              Rs. {adminNetBalance >= 0 ? adminNetBalance.toLocaleString() : '0'}
             </div>
-            <div style={{
-              fontSize: isMobile ? 11 : 12,
-              color: 'rgba(255,255,255,0.4)',
-              marginTop: 6,
-            }}>
-              {availableBalance > 0 ? `Total credit across all members` : `No outstanding balance in khata`}
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>
+              Members still owe this amount to admin
             </div>
           </div>
 
+          {/* Admin own share banner */}
           <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            minWidth: isMobile ? '100%' : 200,
+            background: 'linear-gradient(135deg, #0f1520, #0a1020)',
+            border: `1px solid ${adminShareStats.remaining > 0 ? 'rgba(255,92,106,0.3)' : 'rgba(91,141,239,0.3)'}`,
+            borderRadius: 16, padding: isMobile ? '16px 20px' : '20px 24px',
+            position: 'relative', overflow: 'hidden',
           }}>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '8px 14px', borderRadius: 10,
-              background: 'rgba(255,181,71,0.1)', border: '1px solid rgba(255,181,71,0.2)',
-            }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>Pending collection</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#FFB547' }}>
-                Rs. {totalReceivable.toLocaleString()}
-              </span>
+            <div style={{ fontSize: 11, color: 'rgba(91,141,239,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+              👤 My Personal Share
             </div>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '8px 14px', borderRadius: 10,
-              background: 'rgba(91,141,239,0.1)', border: '1px solid rgba(91,141,239,0.2)',
-            }}>
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>This month total</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#5B8DEF' }}>
-                Rs. {(stats?.monthlyTotal || 0).toLocaleString()}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>OWED</div>
+                <div style={{
+                  fontFamily: "'Syne', sans-serif", fontWeight: 900,
+                  fontSize: isMobile ? 22 : 26, color: '#FF5C6A', letterSpacing: -1, lineHeight: 1,
+                }}>
+                  Rs. {adminShareStats.totalOwed.toLocaleString()}
+                </div>
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: 20, marginBottom: 4 }}>→</div>
+              <div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>PAID</div>
+                <div style={{
+                  fontFamily: "'Syne', sans-serif", fontWeight: 900,
+                  fontSize: isMobile ? 22 : 26, color: '#2ECC9A', letterSpacing: -1, lineHeight: 1,
+                }}>
+                  Rs. {adminShareStats.totalPaid.toLocaleString()}
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{
+                fontSize: 12,
+                color: adminShareStats.remaining > 0 ? '#FF5C6A' : '#2ECC9A',
+                fontWeight: 700,
+              }}>
+                {adminShareStats.remaining > 0
+                  ? `⚠️ Rs. ${adminShareStats.remaining.toLocaleString()} still unpaid`
+                  : '✅ Fully paid up!'}
+              </div>
+              {adminShareStats.remaining > 0 && (
+                <button onClick={() => navigate('/payments')} style={{
+                  padding: '5px 12px', borderRadius: 8, border: 'none',
+                  background: 'rgba(91,141,239,0.2)', color: '#5B8DEF',
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}>Pay Now →</button>
+              )}
             </div>
           </div>
         </div>
@@ -267,7 +250,7 @@ const DashboardPage = () => {
         {/* Weekly Chart */}
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, padding: isMobile ? 16 : 20
+          borderRadius: 16, padding: isMobile ? 16 : 20,
         }}>
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: isMobile ? 15 : 16 }}>
@@ -305,18 +288,18 @@ const DashboardPage = () => {
         {/* Member Balances */}
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, padding: isMobile ? 16 : 20
+          borderRadius: 16, padding: isMobile ? 16 : 20,
         }}>
           <div style={{
             fontWeight: 700, color: 'var(--text)',
-            fontSize: isMobile ? 15 : 16, marginBottom: 14
+            fontSize: isMobile ? 15 : 16, marginBottom: 14,
           }}>
             Member Balances
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 10 }}>
             {(stats?.memberBalances || []).map((m, i) => {
               const colors = ['#2ECC9A', '#5B8DEF', '#FFB547', '#E879F9', '#FB923C', '#34D399'];
-              const color = colors[i % colors.length];
+              const color  = colors[i % colors.length];
               return (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -332,19 +315,26 @@ const DashboardPage = () => {
                       <div style={{
                         fontSize: 10,
                         color: m.role === 'admin' ? 'var(--accent)' : 'var(--text-muted)',
-                        textTransform: 'uppercase', fontWeight: 600
-                      }}>
-                        {m.role}
-                      </div>
+                        textTransform: 'uppercase', fontWeight: 600,
+                      }}>{m.role}</div>
                     </div>
                   </div>
-                  <div style={{
-                    fontWeight: 700, fontSize: isMobile ? 14 : 13,
-                    color: m.balance >= 0 ? 'var(--accent)' : 'var(--red)',
-                    background: m.balance >= 0 ? 'var(--accent-soft)' : 'var(--red-soft)',
-                    padding: '4px 10px', borderRadius: 99, whiteSpace: 'nowrap'
-                  }}>
-                    {m.balance >= 0 ? '+' : ''}Rs. {m.balance?.toLocaleString()}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                    <div style={{
+                      fontWeight: 700, fontSize: isMobile ? 14 : 13,
+                      color: m.balance >= 0 ? 'var(--accent)' : 'var(--red)',
+                      background: m.balance >= 0 ? 'var(--accent-soft)' : 'var(--red-soft)',
+                      padding: '4px 10px', borderRadius: 99, whiteSpace: 'nowrap',
+                    }}>
+                      {m.balance >= 0 ? '+' : ''}Rs. {m.balance?.toLocaleString()}
+                    </div>
+                    {/* Admin's personal share indicator */}
+                    {m.role === 'admin' && (m.adminShareOwed || 0) > 0 && (
+                      <div style={{ fontSize: 10, color: '#5B8DEF', whiteSpace: 'nowrap' }}>
+                        Share: Rs. {(m.adminSharePaid || 0).toLocaleString()}
+                        / {(m.adminShareOwed || 0).toLocaleString()}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -354,8 +344,7 @@ const DashboardPage = () => {
             marginTop: 16, width: '100%',
             padding: isMobile ? '12px' : '10px', borderRadius: 10,
             background: 'var(--accent-soft)', border: '1px solid var(--accent-glow)',
-            color: 'var(--accent)', fontWeight: 700, cursor: 'pointer',
-            fontSize: isMobile ? 13 : 13,
+            color: 'var(--accent)', fontWeight: 700, cursor: 'pointer', fontSize: 13,
           }}>View Full Balances →</button>
         </div>
 
@@ -363,39 +352,33 @@ const DashboardPage = () => {
         {stats?.categoryData?.length > 0 && (
           <div style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 16, padding: isMobile ? 16 : 20
+            borderRadius: 16, padding: isMobile ? 16 : 20,
           }}>
             <div style={{
               fontWeight: 700, color: 'var(--text)',
-              fontSize: isMobile ? 15 : 16, marginBottom: 14
+              fontSize: isMobile ? 15 : 16, marginBottom: 14,
             }}>
               By Category
             </div>
             {stats.categoryData.slice(0, 5).map((c, i) => {
-              const total = stats.categoryData.reduce((s, x) => s + x.total, 0);
-              const pct = total ? Math.round((c.total / total) * 100) : 0;
+              const total  = stats.categoryData.reduce((s, x) => s + x.total, 0);
+              const pct    = total ? Math.round((c.total / total) * 100) : 0;
               const colors = ['#2ECC9A', '#5B8DEF', '#FFB547', '#E879F9', '#FB923C'];
               return (
                 <div key={i} style={{ marginBottom: 12 }}>
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between',
-                    marginBottom: 4, flexWrap: isMobile ? 'wrap' : 'nowrap'
-                  }}>
-                    <span style={{
-                      fontSize: 12, color: 'var(--text-dim)',
-                      textTransform: 'capitalize', fontWeight: 500
-                    }}>{c._id}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-dim)', textTransform: 'capitalize', fontWeight: 500 }}>
+                      {c._id}
+                    </span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>
                       Rs. {c.total?.toLocaleString()}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 4 }}>
-                        ({pct}%)
-                      </span>
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: 4 }}>({pct}%)</span>
                     </span>
                   </div>
                   <div style={{ height: 6, borderRadius: 99, background: 'var(--border)' }}>
                     <div style={{
                       height: '100%', width: `${pct}%`, borderRadius: 99,
-                      background: colors[i % colors.length], transition: 'width 1s'
+                      background: colors[i % colors.length], transition: 'width 1s',
                     }} />
                   </div>
                 </div>
@@ -407,81 +390,78 @@ const DashboardPage = () => {
         {/* Recent Transactions */}
         <div style={{
           background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 16, padding: isMobile ? 16 : 20
+          borderRadius: 16, padding: isMobile ? 16 : 20,
         }}>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            alignItems: 'center', marginBottom: 16
+            alignItems: 'center', marginBottom: 16,
           }}>
             <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: isMobile ? 15 : 16 }}>
               Recent Transactions
             </div>
-            <button
-              onClick={() => navigate('/history')}
-              style={{
-                background: 'none', border: 'none',
-                color: 'var(--accent)', cursor: 'pointer',
-                fontSize: isMobile ? 12 : 12, fontWeight: 600
-              }}
-            >
-              View all →
-            </button>
+            <button onClick={() => navigate('/history')} style={{
+              background: 'none', border: 'none',
+              color: 'var(--accent)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+            }}>View all →</button>
           </div>
 
           {history.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: isMobile ? 24 : 30,
-              color: 'var(--text-muted)', fontSize: isMobile ? 13 : 14
-            }}>
+            <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)', fontSize: 14 }}>
               No transactions yet
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {history.map((t, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  flexDirection: isSmallMobile ? 'column' : 'row',
-                  alignItems: isSmallMobile ? 'stretch' : 'center',
-                  justifyContent: 'space-between',
-                  padding: isMobile ? '12px' : '10px 14px',
-                  borderRadius: 12,
-                  background: t.isAdminSelfPayment ? 'var(--surface-alt)' : t.type === 'payment' ? 'var(--accent-soft)' : 'var(--red-soft)',
-                  border: `1px solid ${t.isAdminSelfPayment ? 'var(--border)' : t.type === 'payment' ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)'}`,
-                  gap: isSmallMobile ? 8 : 0,
-                }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center',
-                    gap: isMobile ? 10 : 12, flex: 1
+              {history.map((t, i) => {
+                // ✅ FIXED: Use isAdminSelfPayment flag only — not role
+                const isAdminSelf = t.isAdminSelfPayment === true;
+                const isPayment   = t.type === 'payment';
+                const bgColor     = isAdminSelf
+                  ? 'rgba(91,141,239,0.08)'
+                  : isPayment ? 'var(--accent-soft)' : 'var(--red-soft)';
+                const borderColor = isAdminSelf
+                  ? 'rgba(91,141,239,0.25)'
+                  : isPayment ? 'var(--accent-glow)' : 'rgba(255,92,106,0.25)';
+                const amountColor = isAdminSelf
+                  ? '#5B8DEF'
+                  : isPayment ? 'var(--accent)' : 'var(--red)';
+
+                return (
+                  <div key={i} style={{
+                    display: 'flex',
+                    flexDirection: isSmallMobile ? 'column' : 'row',
+                    alignItems: isSmallMobile ? 'stretch' : 'center',
+                    justifyContent: 'space-between',
+                    padding: isMobile ? '12px' : '10px 14px',
+                    borderRadius: 12,
+                    background: bgColor,
+                    border: `1px solid ${borderColor}`,
+                    gap: isSmallMobile ? 8 : 0,
                   }}>
-                    <span style={{ fontSize: isMobile ? 18 : 20 }}>
-                      {t.isAdminSelfPayment ? '🧾' : t.type === 'payment' ? '💵' : '🧾'}
-                    </span>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{
-                        fontWeight: 600, fontSize: isMobile ? 13 : 13,
-                        color: 'var(--text)', whiteSpace: 'nowrap',
-                        overflow: 'hidden', textOverflow: 'ellipsis'
-                      }}>{t.title}</div>
-                      <div style={{
-                        fontSize: isMobile ? 11 : 11, color: 'var(--text-muted)',
-                        display: 'flex', gap: 6, flexWrap: 'wrap'
-                      }}>
-                        {t.dividedAmong && <span>Split {t.dividedAmong.length} ways</span>}
-                        {t.member?.name && <span>• {t.member.name}</span>}
-                        <span>• {format(new Date(t.date), 'MMM d')}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 12, flex: 1 }}>
+                      <span style={{ fontSize: isMobile ? 18 : 20 }}>
+                        {isAdminSelf ? '👤' : isPayment ? '💵' : '🧾'}
+                      </span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{
+                          fontWeight: 600, fontSize: 13, color: 'var(--text)',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>{t.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {t.dividedAmong && <span>Split {t.dividedAmong.length} ways</span>}
+                          {t.member?.name && <span>• {t.member.name}</span>}
+                          <span>• {format(new Date(t.date), 'MMM d')}</span>
+                        </div>
                       </div>
                     </div>
+                    <div style={{
+                      fontWeight: 700, fontSize: 14, color: amountColor,
+                      textAlign: 'right', paddingLeft: isSmallMobile ? 28 : 0,
+                    }}>
+                      {isPayment ? '+' : '-'}Rs. {t.amount?.toLocaleString()}
+                    </div>
                   </div>
-                  <div style={{
-                    fontWeight: 700, fontSize: isMobile ? 14 : 14,
-                    color: t.isAdminSelfPayment ? 'var(--text-muted)' : t.type === 'payment' ? 'var(--accent)' : 'var(--red)',
-                    textAlign: 'right',
-                    paddingLeft: isSmallMobile ? 28 : 0,
-                  }}>
-                    {t.isAdminSelfPayment ? '' : t.type === 'payment' ? '+' : '-'}Rs. {t.amount?.toLocaleString()}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
