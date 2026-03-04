@@ -31,13 +31,12 @@ api.interceptors.response.use(
 
 // ─── Auth ─────────────────────────────────────────────────────────
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
-  login   : (data) => api.post('/auth/login', data),
-  getMe   : ()     => api.get('/auth/me'),
-  // NOTE: forgotPassword requires a dedicated backend route (/api/auth/forgot-password).
-  // It is not implemented in this version. The ForgotPasswordPage is included for UI
-  // completeness — calling this will return a 404 until the route is added.
+  register      : (data)  => api.post('/auth/register', data),
+  login         : (data)  => api.post('/auth/login', data),
+  getMe         : ()      => api.get('/auth/me'),
+  generateInvite: ()      => api.post('/auth/invite'),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword : (token, password) => api.post(`/auth/reset-password/${token}`, { password }),
 };
 
 // ─── Group ────────────────────────────────────────────────────────
@@ -51,18 +50,14 @@ export const groupAPI = {
 
 // ─── Expenses ─────────────────────────────────────────────────────
 export const expenseAPI = {
-  getExpenses   : (params)    => api.get('/expenses', { params }),
-  addExpense    : (data)      => api.post('/expenses', data),
-  updateExpense : (id, data)  => api.put(`/expenses/${id}`, data),
-  deleteExpense : (id)        => api.delete(`/expenses/${id}`),
-  getStats      : ()          => api.get('/expenses/stats'),
+  getExpenses   : (params)   => api.get('/expenses', { params }),
+  addExpense    : (data)     => api.post('/expenses', data),
+  updateExpense : (id, data) => api.put(`/expenses/${id}`, data),
+  deleteExpense : (id)       => api.delete(`/expenses/${id}`),
+  getStats      : ()         => api.get('/expenses/stats'),
 };
 
 // ─── Payments ─────────────────────────────────────────────────────
-// params.type: '' | 'member' | 'self'
-//   ''       = all payments
-//   'member' = only member-to-admin payments
-//   'self'   = only admin's own share payments
 export const paymentAPI = {
   getPayments   : (params) => api.get('/payments', { params }),
   recordPayment : (data)   => api.post('/payments', data),
@@ -70,7 +65,6 @@ export const paymentAPI = {
 };
 
 // ─── Balances ─────────────────────────────────────────────────────
-// params.type: '' | 'expense' | 'payment' | 'member' | 'self'
 export const balanceAPI = {
   getBalances: ()       => api.get('/balances'),
   getHistory : (params) => api.get('/balances/history', { params }),

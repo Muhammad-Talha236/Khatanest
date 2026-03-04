@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import JoinPage from './pages/JoinPage';
 import DashboardPage from './pages/DashboardPage';
 import ExpensesPage from './pages/ExpensesPage';
 import PaymentsPage from './pages/PaymentsPage';
@@ -41,16 +42,24 @@ const PublicRoute = ({ children }) => {
 
 const AppRoutes = () => (
   <Routes>
+    {/* Public routes */}
     <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+
+    {/* ✅ Invite join page — public, no auth needed, no sidebar */}
+    <Route path="/join/:token" element={<JoinPage />} />
+
+    {/* Protected routes */}
     <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-    <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
-    <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-    <Route path="/members" element={<ProtectedRoute adminOnly><MembersPage /></ProtectedRoute>} />
-    <Route path="/balances" element={<ProtectedRoute><BalancesPage /></ProtectedRoute>} />
-    <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
-    <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-    <Route path="/" element={<Navigate to="/dashboard" replace />} />
-    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/expenses"  element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
+    <Route path="/payments"  element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+    <Route path="/members"   element={<ProtectedRoute adminOnly><MembersPage /></ProtectedRoute>} />
+    <Route path="/balances"  element={<ProtectedRoute><BalancesPage /></ProtectedRoute>} />
+    <Route path="/history"   element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+    <Route path="/reports"   element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+
+    {/* Fallbacks */}
+    <Route path="/"  element={<Navigate to="/dashboard" replace />} />
+    <Route path="*"  element={<Navigate to="/dashboard" replace />} />
   </Routes>
 );
 
@@ -63,16 +72,16 @@ const App = () => (
           position="bottom-right"
           toastOptions={{
             style: {
-              background: 'var(--surface-alt)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
+              background  : 'var(--surface-alt)',
+              color       : 'var(--text)',
+              border      : '1px solid var(--border)',
               borderRadius: '10px',
-              fontSize: '13px',
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 600,
+              fontSize    : '13px',
+              fontFamily  : "'DM Sans', sans-serif",
+              fontWeight  : 600,
             },
             success: { iconTheme: { primary: '#2ECC9A', secondary: '#000' } },
-            error: { iconTheme: { primary: '#FF5C6A', secondary: '#fff' } },
+            error  : { iconTheme: { primary: '#FF5C6A', secondary: '#fff' } },
           }}
         />
         <style>{`
