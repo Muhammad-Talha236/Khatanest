@@ -1,18 +1,35 @@
-const express = require('express');
-const router = express.Router();
+// routes/group.js
+const express  = require('express');
+const router   = express.Router();
 const { body } = require('express-validator');
-const { getGroup, addMember, removeMember, updateGroup, monthlyReset } = require('../controllers/groupController');
+const {
+  getGroup, updateGroup,
+  addMember, removeMember, updateMemberRole,
+  updateSettings, updateBudgets,
+  monthlyReset, getArchives, getArchive,
+} = require('../controllers/groupController');
 const { protect, adminOnly, requireGroup } = require('../middleware/auth');
-const validate = require('../middleware/validate');
+const { validate } = require('../middleware/validation');
 
 router.use(protect, requireGroup);
-router.get('/', getGroup);
-router.put('/', adminOnly, updateGroup);
-router.post('/reset', adminOnly, monthlyReset);
+
+router.get('/',           getGroup);
+router.put('/',           adminOnly, updateGroup);
+router.put('/settings',   adminOnly, updateSettings);
+router.put('/budgets',    adminOnly, updateBudgets);
+router.post('/reset',     adminOnly, monthlyReset);
+
+// Archives
+router.get('/archives',    adminOnly, getArchives);
+router.get('/archives/:id', adminOnly, getArchive);
+
+// Members
 router.post('/members', adminOnly,
-  [body('name').trim().notEmpty().withMessage('Name required'),
-   body('email').isEmail().withMessage('Valid email required'),
-   body('password').isLength({ min: 6 }).withMessage('Password min 6 chars')],
+  [body('name').trim().notEmpty(), body('email').isEmail(), body('password').isLength({ min: 6 })],
   validate, addMember);
 router.delete('/members/:memberId', adminOnly, removeMember);
+router.put('/members/:memberId/role', adminOnly,
+  [body('role').isIn(['member', 'co-admin']).withMessage('Invalid role')],
+  validate, updateMemberRole);
+
 module.exports = router;
